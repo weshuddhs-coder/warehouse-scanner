@@ -3,58 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Warehouse Scan</title>
+    <title>Fast Scan</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f5; height: 100vh; display: flex; flex-direction: column; }
-        .header { background: white; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
-        .counters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .count-box { background: #eef2ff; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 1.2rem; color: #3730a3; }
-        .count-label { font-size: 0.8rem; color: #6b7280; font-weight: normal; display: block; }
-        .tabs { display: flex; background: #e5e7eb; border-radius: 8px; padding: 4px; }
-        .tab { flex: 1; padding: 12px; text-align: center; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #f4f4f5; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* HEADER AREA */
+        .header { background: white; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
+        
+        /* 2x2 GRID FOR COUNTERS */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .stat-card { background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; }
+        .stat-card.batch { background: #eff6ff; border-color: #bfdbfe; }
+        .stat-val { font-size: 1.1rem; font-weight: 800; color: #0f172a; }
+        .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* TABS */
+        .tabs { display: flex; background: #e2e8f0; border-radius: 8px; padding: 3px; }
+        .tab { flex: 1; padding: 10px; text-align: center; font-weight: 700; font-size: 0.9rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .tab.active { background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .tab[data-mode="READY"].active { color: #2563eb; }
-        .tab[data-mode="PICKED_UP"].active { color: #16a34a; }
-        #reader { flex: 1; width: 100%; background: black; overflow: hidden; position: relative; }
-        .logs { height: 150px; background: white; overflow-y: auto; padding: 10px; font-size: 0.9rem; border-top: 1px solid #ddd; }
-        .log-row { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        .log-row.err { color: #dc2626; background: #fef2f2; }
-        .log-row.ok { color: #16a34a; }
-        .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: white; z-index: 100; }
+        .tab[data-mode="READY"].active { color: #2563eb; } /* Blue */
+        .tab[data-mode="PICKED_UP"].active { color: #16a34a; } /* Green */
+
+        /* SCANNER & LOGS */
+        #reader { flex: 1; width: 100%; background: #000; position: relative; overflow: hidden; }
+        
+        .logs { height: 120px; background: white; overflow-y: auto; padding: 0; border-top: 1px solid #e2e8f0; }
+        .log-row { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+        .log-row.ok { border-left: 4px solid #16a34a; background: #f0fdf4; }
+        .log-row.err { border-left: 4px solid #dc2626; background: #fef2f2; }
+        .time { color: #94a3b8; font-size: 0.7rem; }
+
+        /* BATCH CONTROL */
+        .batch-ctrl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 5px; }
+        .batch-title { font-size: 0.8rem; font-weight: bold; color: #475569; }
+        .btn-reset { background: none; border: 1px solid #cbd5e1; color: #64748b; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+
+        /* OVERLAYS */
+        .overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: white; z-index: 100; }
         .overlay.error { background: rgba(220, 38, 38, 0.98); }
         .overlay.success { background: rgba(22, 163, 74, 0.9); pointer-events: none; }
-        .overlay h1 { font-size: 4rem; margin: 0; }
-        .overlay p { font-size: 1.5rem; margin: 20px; padding: 0 20px; }
-        button.btn-ok { background: white; color: black; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .overlay h1 { font-size: 3rem; margin: 0; }
+        .overlay p { font-size: 1.2rem; margin: 10px 20px; line-height: 1.4; }
+        button.btn-ok { background: white; color: black; border: none; padding: 15px 50px; font-size: 1.1rem; border-radius: 50px; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
+
     <div class="header">
-        <div class="counters">
-            <div class="count-box"><span id="c-ready">-</span> <span class="count-label">Ready Today</span></div>
-            <div class="count-box"><span id="c-picked">-</span> <span class="count-label">Picked Today</span></div>
+        <div class="batch-ctrl">
+            <span class="batch-title">CURRENT SESSION</span>
+            <button class="btn-reset" onclick="resetBatch()">RESET BATCH</button>
         </div>
+
+        <div class="stats-grid">
+            <div class="stat-card batch">
+                <div class="stat-val" id="b-ready">0</div>
+                <div class="stat-label">Batch Ready</div>
+            </div>
+            <div class="stat-card batch">
+                <div class="stat-val" id="b-picked">0</div>
+                <div class="stat-label">Batch Picked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="t-ready">-</div>
+                <div class="stat-label">Today Ready</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="t-picked">-</div>
+                <div class="stat-label">Today Picked</div>
+            </div>
+        </div>
+
         <div class="tabs">
             <div class="tab active" data-mode="READY" onclick="switchMode('READY')">MARK READY</div>
             <div class="tab" data-mode="PICKED_UP" onclick="switchMode('PICKED_UP')">MARK PICKED UP</div>
         </div>
     </div>
+
     <div id="reader"></div>
     <div class="logs" id="logs"></div>
-    <div id="success-overlay" class="overlay success"><h1>✅</h1><p id="success-msg">Scanned</p></div>
-    <div id="error-overlay" class="overlay error"><h1>❌</h1><p id="error-msg">Error</p><button class="btn-ok" onclick="dismissError()">OK</button></div>
+
+    <div id="success-overlay" class="overlay success">
+        <h1>✅</h1>
+        <p id="success-msg">Scanned</p>
+    </div>
+
+    <div id="error-overlay" class="overlay error">
+        <h1>⚠️</h1>
+        <p id="error-msg">Error</p>
+        <button class="btn-ok" onclick="dismissError()">OK, CONTINUE</button>
+    </div>
 
     <script>
-        // ✅ YOUR SUPABASE URL IS HARDCODED HERE
+        // ✅ YOUR URL
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1"; 
         const OPERATOR_NAME = "WarehouseOps";
 
         let MODE = 'READY';
         let isProcessing = false;
         let lastScannedCode = null;
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Batch Counters (Session only)
+        let batchCounts = { READY: 0, PICKED_UP: 0 };
 
+        // --- AUDIO ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function beep(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
@@ -62,88 +116,145 @@
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             if (type === 'ok') {
-                osc.frequency.value = 1000; gain.gain.value = 0.1;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                osc.frequency.value = 1200; gain.gain.value = 0.1;
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
             } else {
-                osc.type = 'sawtooth'; osc.frequency.value = 200; gain.gain.value = 0.5;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-                if(navigator.vibrate) navigator.vibrate(300);
+                osc.type = 'sawtooth'; osc.frequency.value = 150; gain.gain.value = 0.5;
+                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                if(navigator.vibrate) navigator.vibrate([200, 50, 200]);
             }
         }
 
+        // --- LOGIC ---
         function switchMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector('.tab[data-mode="'+m+'"]').classList.add('active');
+            document.querySelector(`.tab[data-mode="${m}"]`).classList.add('active');
             lastScannedCode = null;
+        }
+
+        function resetBatch() {
+            if(confirm("Start new batch? This clears local counts.")) {
+                batchCounts = { READY: 0, PICKED_UP: 0 };
+                updateUI();
+            }
         }
 
         async function onScan(decodedText) {
             if (isProcessing) return;
-            if (decodedText === lastScannedCode) return;
+            if (decodedText === lastScannedCode) return; // Ignore duplicate frames
+            
             isProcessing = true;
             lastScannedCode = decodedText;
+
             const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
+            
             try {
-                const res = await fetch(BASE_URL + '/' + endpoint, {
+                // UI feedback immediately
+                document.getElementById('success-msg').innerText = "Processing...";
+                
+                const res = await fetch(`${BASE_URL}/${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ awb: decodedText, operator: OPERATOR_NAME })
                 });
                 const data = await res.json();
-                if (data.result === 'ACCEPTED') handleSuccess(decodedText, data.message);
-                else handleError(decodedText, data.message);
-            } catch (e) { handleError(decodedText, "Network Error"); }
+
+                if (data.result === 'ACCEPTED') {
+                    handleSuccess(decodedText, data.message);
+                } else {
+                    handleError(decodedText, data.message);
+                }
+            } catch (e) {
+                handleError(decodedText, "Network Error");
+            }
         }
 
         function handleSuccess(awb, msg) {
             beep('ok');
-            document.getElementById('success-msg').innerText = awb + '\n' + msg;
+            document.getElementById('success-msg').innerText = `${awb}\n${msg}`;
             document.getElementById('success-overlay').style.display = 'flex';
+            
             log(awb, msg, 'ok');
-            updateCount(1);
-            setTimeout(() => { document.getElementById('success-overlay').style.display = 'none'; isProcessing = false; }, 1000);
+            
+            // Increment Batch
+            batchCounts[MODE]++;
+            
+            // Increment Total (Optimistic)
+            const todayId = MODE === 'READY' ? 't-ready' : 't-picked';
+            const el = document.getElementById(todayId);
+            el.innerText = (parseInt(el.innerText) || 0) + 1;
+            
+            updateUI();
+
+            setTimeout(() => {
+                document.getElementById('success-overlay').style.display = 'none';
+                isProcessing = false;
+            }, 800); // Fast resume
         }
 
         function handleError(awb, msg) {
             beep('error');
-            document.getElementById('error-msg').innerText = awb + '\n\n' + msg;
+            document.getElementById('error-msg').innerText = `${awb}\n\n${msg}`;
             document.getElementById('error-overlay').style.display = 'flex';
             log(awb, msg, 'err');
+            // Stays locked until user clicks OK
         }
 
         function dismissError() {
             document.getElementById('error-overlay').style.display = 'none';
             isProcessing = false;
-            lastScannedCode = null;
+            lastScannedCode = null; // Allow retry
         }
 
         function log(awb, msg, type) {
             const div = document.createElement('div');
-            div.className = 'log-row ' + type;
-            div.innerHTML = '<span>'+awb+'</span> <span>'+msg+'</span>';
+            div.className = `log-row ${type}`;
+            div.innerHTML = `<span><strong>${awb.slice(-6)}</strong>: ${msg}</span> <span class="time">${new Date().toLocaleTimeString()}</span>`;
             document.getElementById('logs').prepend(div);
         }
 
-        function updateCount(n) {
-            const id = MODE === 'READY' ? 'c-ready' : 'c-picked';
-            const el = document.getElementById(id);
-            el.innerText = (parseInt(el.innerText) || 0) + n;
+        function updateUI() {
+            document.getElementById('b-ready').innerText = batchCounts.READY;
+            document.getElementById('b-picked').innerText = batchCounts.PICKED_UP;
         }
 
-        async function fetchCounts() {
+        async function fetchTodayCounts() {
             try {
-                const res = await fetch(BASE_URL + '/warehouse_get_counts');
+                const res = await fetch(`${BASE_URL}/warehouse_get_counts`);
                 const data = await res.json();
-                document.getElementById('c-ready').innerText = data.ready_today || 0;
-                document.getElementById('c-picked').innerText = data.picked_today || 0;
-            } catch(e) {}
+                if(data) {
+                    document.getElementById('t-ready').innerText = data.ready_today || 0;
+                    document.getElementById('t-picked').innerText = data.picked_today || 0;
+                }
+            } catch(e) { console.error("Count fetch failed", e); }
         }
 
+        // --- INIT SCANNER ---
         window.onload = function() {
-            fetchCounts();
-            const scanner = new Html5Qrcode("reader");
-            scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScan);
+            fetchTodayCounts();
+            
+            const html5QrCode = new Html5Qrcode("reader");
+            
+            // WIDE BOX config for Barcodes (AWBs are rectangles!)
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 300, height: 150 }, 
+                aspectRatio: 1.0,
+                // Force experimental features for native speed
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            };
+
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScan
+            ).catch(err => {
+                console.log("Scanner init error", err);
+                alert("Camera error: " + err);
+            });
         };
     </script>
 </body>
