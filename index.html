@@ -2,64 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Warehouse Ops</title>
-    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Scan</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: sans-serif; margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #f4f4f5; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* 1. HEADER (Stats) */
+        .header { background: white; padding: 10px; border-bottom: 1px solid #ddd; z-index: 20; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+        .stat-box { background: #f0f9ff; border: 1px solid #bae6fd; padding: 5px; text-align: center; border-radius: 4px; }
+        .stat-val { font-weight: bold; font-size: 1.1rem; color: #0284c7; }
+        .stat-lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+        
+        /* 2. MODE TABS */
+        .tabs { display: flex; gap: 5px; background: #e2e8f0; pading: 3px; border-radius: 6px; }
+        .tab { flex: 1; padding: 10px; text-align: center; background: #e2e8f0; font-weight: bold; cursor: pointer; border-radius: 4px; color: #64748b; }
+        .tab.active { background: #2563eb; color: white; }
+        .tab[data-mode="PICKED_UP"].active { background: #16a34a; }
 
-        /* HEADER */
-        .header { position: absolute; top: 0; left: 0; right: 0; background: white; z-index: 50; padding: 10px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
-        .stat-card { background: #f1f5f9; padding: 5px; border-radius: 5px; text-align: center; border: 1px solid #cbd5e1; }
-        .stat-val { font-weight: 900; font-size: 1rem; }
-        .stat-lbl { font-size: 0.6rem; color: #64748b; font-weight: bold; }
-        .tabs { display: flex; background: #e2e8f0; border-radius: 6px; padding: 2px; }
-        .tab { flex: 1; padding: 8px; text-align: center; font-weight: bold; font-size: 0.8rem; border-radius: 4px; color: #64748b; }
-        .tab.active { background: white; color: black; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .tab[data-mode="READY"].active { color: #2563eb; border-bottom: 2px solid #2563eb; }
-        .tab[data-mode="PICKED_UP"].active { color: #16a34a; border-bottom: 2px solid #16a34a; }
+        /* 3. SCANNER AREA (We let the library handle the size) */
+        #scanner-container { flex: 1; background: black; overflow: hidden; position: relative; }
+        /* Force the library video to fill space */
+        #reader { width: 100%; border: none; }
+        #reader video { object-fit: cover; border-radius: 0; }
+        
+        /* 4. LOGS (Scrollable) */
+        .logs { height: 30vh; background: white; overflow-y: auto; padding: 10px; border-top: 1px solid #ccc; font-size: 0.85rem; }
+        .log-item { padding: 5px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .log-item.ok { color: green; } .log-item.err { color: red; }
 
-        /* CAMERA LAYER */
-        #interactive.viewport { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; background: #000; }
-        #interactive.viewport > video, #interactive.viewport > canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+        /* 5. DEBUG CONSOLE (To see why camera fails) */
+        #debug { display: none; background: #333; color: #0f0; font-family: monospace; padding: 10px; font-size: 0.7rem; max-height: 100px; overflow: auto; }
 
-        /* START BUTTON LAYER */
-        #start-screen { position: absolute; inset: 0; z-index: 60; background: #f4f4f5; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .btn-start { padding: 20px 40px; font-size: 1.5rem; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 50px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
-
-        /* LOGS */
-        .logs-panel { position: absolute; bottom: 0; left: 0; right: 0; height: 35vh; background: white; z-index: 70; border-top-left-radius: 16px; border-top-right-radius: 16px; display: flex; flex-direction: column; }
-        .logs-head { padding: 10px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 0.8rem; }
-        .logs-list { flex: 1; overflow-y: auto; }
-        .log-row { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
-        .log-row.ok { border-left: 5px solid #16a34a; background: #f0fdf4; }
-        .log-row.err { border-left: 5px solid #dc2626; background: #fef2f2; }
-
-        /* FEEDBACK */
-        .overlay { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); color: white; text-align: center; }
-        .overlay.success { background: rgba(22, 163, 74, 0.9); pointer-events: none; }
-        .overlay.error { background: rgba(220, 38, 38, 0.95); }
-        .btn-close { margin-top: 20px; padding: 15px 40px; border-radius: 30px; border: none; font-weight: 900; font-size: 1rem; background: white; color: black; }
+        /* POPUPS */
+        .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 100; text-align: center; color: white; }
+        .overlay.ok { background: rgba(22, 163, 74, 0.9); }
+        .overlay.err { background: rgba(220, 38, 38, 0.95); }
+        .overlay h1 { font-size: 4rem; margin: 0; }
+        .overlay p { font-size: 1.2rem; font-weight: bold; }
+        button.close-btn { padding: 15px 30px; border-radius: 30px; border: none; font-size: 1rem; font-weight: bold; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="interactive" class="viewport"></div>
-
-    <div id="start-screen">
-        <h2 style="color:#334155; margin-bottom:20px;">Warehouse Scanner</h2>
-        <button class="btn-start" onclick="initCamera()">TAP TO START</button>
-        <p style="margin-top:20px; color:#64748b; font-size:0.9rem;">Click to enable camera access</p>
-    </div>
-
     <div class="header">
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-val" id="b-ready">0</div><div class="stat-lbl">Batch Ready</div></div>
-            <div class="stat-card"><div class="stat-val" id="b-picked">0</div><div class="stat-lbl">Batch Picked</div></div>
-            <div class="stat-card"><div class="stat-val" id="t-ready">-</div><div class="stat-lbl">Today Ready</div></div>
-            <div class="stat-card"><div class="stat-val" id="t-picked">-</div><div class="stat-lbl">Today Picked</div></div>
+        <div class="stats">
+            <div class="stat-box"><div class="stat-val" id="count-ready">-</div><div class="stat-lbl">Today Ready</div></div>
+            <div class="stat-box"><div class="stat-val" id="count-picked">-</div><div class="stat-lbl">Today Picked</div></div>
         </div>
         <div class="tabs">
             <div class="tab active" data-mode="READY" onclick="setMode('READY')">MARK READY</div>
@@ -67,82 +57,83 @@
         </div>
     </div>
 
-    <div class="logs-panel">
-        <div class="logs-head"><span>HISTORY</span> <button onclick="resetBatch()">RESET</button></div>
-        <div class="logs-list" id="logs"></div>
+    <div id="scanner-container">
+        <div id="reader"></div>
     </div>
 
-    <div id="success-overlay" class="overlay success"><h1>✅</h1><p id="success-txt">SCANNED</p></div>
-    <div id="error-overlay" class="overlay error"><h1>⚠️</h1><p id="error-txt">ERROR</p><button class="btn-close" onclick="closeError()">OK</button></div>
+    <div id="debug">DEBUG LOG:</div>
+    <div class="logs" id="logs">
+        <div style="color:#aaa; text-align:center; padding:10px;">Scan History</div>
+    </div>
+
+    <div id="overlay-ok" class="overlay ok"><h1>✅</h1><p id="msg-ok">Scanned</p></div>
+    <div id="overlay-err" class="overlay err"><h1>⚠️</h1><p id="msg-err">Error</p><button class="close-btn" onclick="hideErr()">OK</button></div>
 
     <script>
+        // === CONFIG ===
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1";
         const OPERATOR = "WarehouseOps";
         let MODE = 'READY';
         let isProcessing = false;
-        let batch = { READY: 0, PICKED_UP: 0 };
-        let today = { READY: 0, PICKED_UP: 0 };
-        let lastScanned = null;
+        let lastCode = null;
 
-        // --- CAMERA INIT ---
-        function initCamera() {
-            // Hide start screen
-            document.getElementById('start-screen').style.display = 'none';
-
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.querySelector('#interactive'),
-                    constraints: {
-                        width: { min: 640 },
-                        height: { min: 480 },
-                        facingMode: "environment", // Rear camera
-                        aspectRatio: { min: 1, max: 2 }
-                    }
-                },
-                locator: { patchSize: "medium", halfSample: true },
-                numOfWorkers: 2,
-                decoder: { readers: ["code_128_reader"] }, // ONLY AWB BARCODES
-                locate: true
-            }, function(err) {
-                if (err) {
-                    alert("Camera Error: " + err + "\n\nMake sure you allowed camera permissions.");
-                    document.getElementById('start-screen').style.display = 'flex'; // Show button again
-                    return;
-                }
-                Quagga.start();
-            });
-
-            // Green Box Visuals
-            Quagga.onProcessed(function(result) {
-                var drawingCtx = Quagga.canvas.ctx.overlay, drawingCanvas = Quagga.canvas.dom.overlay;
-                if (result) {
-                    if (result.boxes) {
-                        drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.getAttribute("width")), parseInt(drawingCanvas.getAttribute("height")));
-                        result.boxes.filter(function (box) { return box !== result.box; }).forEach(function (box) {
-                            Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "green", lineWidth: 2});
-                        });
-                    }
-                    if (result.box) Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
-                    if (result.codeResult && result.codeResult.code) Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
-                }
-            });
-
-            Quagga.onDetected(function(result) {
-                var code = result.codeResult.code;
-                if(isProcessing || code === lastScanned || code.length < 5) return;
-                processScan(code);
-            });
+        // === DEBUGGER ===
+        function debug(msg) {
+            console.log(msg);
+            const d = document.getElementById('debug');
+            d.style.display = 'block';
+            d.innerHTML += `<div>> ${msg}</div>`;
+            d.scrollTop = d.scrollHeight;
         }
 
-        // --- API & LOGIC ---
-        async function processScan(awb) {
+        // === 1. START SCANNER (The Safe Way) ===
+        function startScanner() {
+            debug("Initializing Scanner...");
+
+            // Create the UI Scanner
+            const html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 150 }, // Rectangular Box
+                    aspectRatio: 1.0,
+                    showTorchButtonIfSupported: true
+                },
+                /* verbose= */ false 
+            );
+
+            // Success Callback
+            function onScanSuccess(decodedText, decodedResult) {
+                if (isProcessing) return;
+                if (decodedText === lastCode) return; // Ignore duplicates
+                
+                // IGNORE QR CODES (Simple heuristic: AWBs are usually numeric or alphanumeric > 8 chars)
+                // You can remove this check if you want to allow everything
+                // if (decodedText.length < 5) return; 
+
+                handleScan(decodedText);
+            }
+
+            // Error Callback (Silent mostly, to avoid spam)
+            function onScanFailure(error) {
+                // debug(`Scan fail: ${error}`); // Uncomment if you want to see every failed frame
+            }
+
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            debug("Scanner Rendered. Waiting for permissions...");
+        }
+
+        // === 2. HANDLE SCANS ===
+        async function handleScan(awb) {
             isProcessing = true;
-            lastScanned = awb;
+            lastCode = awb;
+            debug(`Scanned: ${awb}`);
 
             const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
+            
             try {
+                // UI Feedback: Loading
+                
                 const res = await fetch(`${BASE_URL}/${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -151,69 +142,108 @@
                 const data = await res.json();
 
                 if (data.result === 'ACCEPTED') {
-                    batch[MODE]++; today[MODE]++; updateUI();
-                    showSuccess(awb, data.message);
-                    setTimeout(() => { fetchCounts(); isProcessing = false; }, 1000);
+                    showOk(awb, data.message);
+                    updateCount(MODE, 1);
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                showError(awb, e.message);
+                showErr(awb, e.message || "Network Error");
             }
         }
 
-        function showSuccess(awb, msg) {
-            document.getElementById('success-txt').innerText = `${awb}\n${msg}`;
-            document.getElementById('success-overlay').style.display = 'flex';
-            addLog(awb, msg, 'ok');
-            setTimeout(() => { document.getElementById('success-overlay').style.display = 'none'; }, 1000);
-        }
-
-        function showError(awb, msg) {
-            document.getElementById('error-txt').innerText = `${awb}\n\n${msg}`;
-            document.getElementById('error-overlay').style.display = 'flex';
-            addLog(awb, msg, 'err');
-        }
-
-        function closeError() {
-            document.getElementById('error-overlay').style.display = 'none';
-            isProcessing = false;
-            setTimeout(() => { lastScanned = null; }, 1000);
-        }
-
-        // --- HELPERS ---
+        // === 3. UI HELPERS ===
         function setMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`.tab[data-mode="${m}"]`).classList.add('active');
-            lastScanned = null;
+            lastCode = null;
         }
 
-        function resetBatch() { if(confirm("Reset batch?")) { batch = { READY: 0, PICKED_UP: 0 }; updateUI(); } }
+        function showOk(awb, msg) {
+            const ol = document.getElementById('overlay-ok');
+            document.getElementById('msg-ok').innerText = `${awb}\n${msg}`;
+            ol.style.display = 'flex';
+            addLog(awb, msg, true);
+            
+            // Audio Beep
+            playBeep(true);
 
-        function updateUI() {
-            document.getElementById('b-ready').innerText = batch.READY;
-            document.getElementById('b-picked').innerText = batch.PICKED_UP;
-            document.getElementById('t-ready').innerText = today.READY;
-            document.getElementById('t-picked').innerText = today.PICKED_UP;
+            setTimeout(() => {
+                ol.style.display = 'none';
+                isProcessing = false;
+                // Don't clear lastCode immediately to prevent rapid double-scan of same item
+                setTimeout(() => lastCode = null, 2000); 
+            }, 1000);
         }
 
-        function addLog(awb, msg, type) {
+        function showErr(awb, msg) {
+            const ol = document.getElementById('overlay-err');
+            document.getElementById('msg-err').innerText = `${awb}\n${msg}`;
+            ol.style.display = 'flex';
+            addLog(awb, msg, false);
+            playBeep(false);
+        }
+
+        function hideErr() {
+            document.getElementById('overlay-err').style.display = 'none';
+            isProcessing = false;
+            lastCode = null;
+        }
+
+        function addLog(awb, msg, isOk) {
             const row = document.createElement('div');
-            row.className = `log-row ${type}`;
-            row.innerHTML = `<div><strong>${awb.slice(-6)}</strong>: ${msg}</div><div style="font-size:0.7rem">${new Date().toLocaleTimeString()}</div>`;
+            row.className = 'log-item ' + (isOk ? 'ok' : 'err');
+            row.innerHTML = `<span>${awb}</span><span>${msg}</span>`;
             document.getElementById('logs').prepend(row);
+        }
+
+        function updateCount(mode, amount) {
+            // This is "optimistic" updating. Real count comes from server on reload.
+            const id = mode === 'READY' ? 'count-ready' : 'count-picked';
+            const el = document.getElementById(id);
+            let val = parseInt(el.innerText);
+            if(isNaN(val)) val = 0;
+            el.innerText = val + amount;
+        }
+
+        // Audio Feedback
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(success) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            if(success) {
+                osc.frequency.value = 1000; gain.gain.value = 0.1;
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else {
+                osc.type = 'sawtooth'; osc.frequency.value = 200; gain.gain.value = 0.2;
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                if(navigator.vibrate) navigator.vibrate(300);
+            }
         }
 
         async function fetchCounts() {
             try {
                 const res = await fetch(`${BASE_URL}/warehouse_get_counts`);
                 const data = await res.json();
-                if(data) { today.READY = data.ready_today; today.PICKED_UP = data.picked_today; updateUI(); }
-            } catch(e) {}
+                document.getElementById('count-ready').innerText = data.ready_today || 0;
+                document.getElementById('count-picked').innerText = data.picked_today || 0;
+            } catch(e) { debug("Count fetch error"); }
         }
 
-        window.onload = function() { fetchCounts(); };
+        // === STARTUP ===
+        window.onload = function() {
+            fetchCounts();
+            try {
+                startScanner();
+            } catch(e) {
+                debug("FATAL: " + e.message);
+                alert("Scanner failed to load: " + e.message);
+            }
+        };
     </script>
 </body>
 </html>
