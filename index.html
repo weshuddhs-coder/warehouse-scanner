@@ -3,103 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quagga Barcode Ops</title>
+    <title>Warehouse Ops</title>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <style>
-        /* RESET */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            margin: 0; padding: 0; background: #000; height: 100vh; overflow: hidden; 
-            display: flex; flex-direction: column; 
-        }
+        body { font-family: sans-serif; margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
         /* HEADER */
-        .header { 
-            position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(255,255,255,0.95); 
-            z-index: 50; padding: 10px; 
-            border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        /* STATS GRID */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+        .header { position: absolute; top: 0; left: 0; right: 0; background: white; z-index: 50; padding: 10px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
         .stat-card { background: #f1f5f9; padding: 5px; border-radius: 5px; text-align: center; border: 1px solid #cbd5e1; }
-        .stat-val { font-weight: 900; font-size: 1.1rem; color: #0f172a; line-height: 1; }
-        .stat-lbl { font-size: 0.65rem; color: #64748b; font-weight: bold; text-transform: uppercase; }
-        
-        /* TABS */
+        .stat-val { font-weight: 900; font-size: 1rem; }
+        .stat-lbl { font-size: 0.6rem; color: #64748b; font-weight: bold; }
         .tabs { display: flex; background: #e2e8f0; border-radius: 6px; padding: 2px; }
-        .tab { flex: 1; padding: 8px; text-align: center; font-weight: 800; font-size: 0.8rem; border-radius: 4px; color: #64748b; transition: 0.2s; }
+        .tab { flex: 1; padding: 8px; text-align: center; font-weight: bold; font-size: 0.8rem; border-radius: 4px; color: #64748b; }
         .tab.active { background: white; color: black; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .tab[data-mode="READY"].active { color: #2563eb; border-bottom: 2px solid #2563eb; }
         .tab[data-mode="PICKED_UP"].active { color: #16a34a; border-bottom: 2px solid #16a34a; }
 
-        /* CAMERA CONTAINER (Full Screen Behind Header) */
-        #interactive.viewport {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; background: #000;
-        }
-        /* Quagga Video Styling */
-        #interactive.viewport > video { width: 100%; height: 100%; object-fit: cover; }
-        /* Quagga Drawing Canvas (The Green Lines) */
-        #interactive.viewport > canvas, canvas.drawingBuffer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-        }
+        /* CAMERA LAYER */
+        #interactive.viewport { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; background: #000; }
+        #interactive.viewport > video, #interactive.viewport > canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
 
-        /* LOGS (Bottom Overlay) */
-        .logs-panel {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            height: 35vh; background: white; z-index: 60;
-            border-top-left-radius: 16px; border-top-right-radius: 16px;
-            display: flex; flex-direction: column;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
-        }
-        .logs-head { 
-            padding: 10px 15px; border-bottom: 1px solid #e2e8f0; 
-            display: flex; justify-content: space-between; align-items: center; 
-            font-weight: bold; font-size: 0.8rem; color: #475569;
-        }
+        /* START BUTTON LAYER */
+        #start-screen { position: absolute; inset: 0; z-index: 60; background: #f4f4f5; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-start { padding: 20px 40px; font-size: 1.5rem; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 50px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
+
+        /* LOGS */
+        .logs-panel { position: absolute; bottom: 0; left: 0; right: 0; height: 35vh; background: white; z-index: 70; border-top-left-radius: 16px; border-top-right-radius: 16px; display: flex; flex-direction: column; }
+        .logs-head { padding: 10px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 0.8rem; }
         .logs-list { flex: 1; overflow-y: auto; }
-        .log-row { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .log-row { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
         .log-row.ok { border-left: 5px solid #16a34a; background: #f0fdf4; }
         .log-row.err { border-left: 5px solid #dc2626; background: #fef2f2; }
-        .btn-reset { border: 1px solid #cbd5e1; background: #f8fafc; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; color: #475569; }
 
-        /* FEEDBACK OVERLAY */
+        /* FEEDBACK */
         .overlay { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); color: white; text-align: center; }
-        .overlay.success { background: rgba(22, 163, 74, 0.85); }
-        .overlay.error { background: rgba(220, 38, 38, 0.9); }
-        .overlay h1 { font-size: 4rem; margin: 0; }
-        .overlay p { font-size: 1.2rem; font-weight: bold; margin: 10px 20px; }
-        .btn-ok { margin-top: 20px; padding: 15px 40px; border-radius: 30px; border: none; font-weight: 900; font-size: 1rem; background: white; color: black; }
-
+        .overlay.success { background: rgba(22, 163, 74, 0.9); pointer-events: none; }
+        .overlay.error { background: rgba(220, 38, 38, 0.95); }
+        .btn-close { margin-top: 20px; padding: 15px 40px; border-radius: 30px; border: none; font-weight: 900; font-size: 1rem; background: white; color: black; }
     </style>
 </head>
 <body>
 
     <div id="interactive" class="viewport"></div>
 
+    <div id="start-screen">
+        <h2 style="color:#334155; margin-bottom:20px;">Warehouse Scanner</h2>
+        <button class="btn-start" onclick="initCamera()">TAP TO START</button>
+        <p style="margin-top:20px; color:#64748b; font-size:0.9rem;">Click to enable camera access</p>
+    </div>
+
     <div class="header">
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-val" id="b-ready">0</div>
-                <div class="stat-lbl">Batch Ready</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-val" id="b-picked">0</div>
-                <div class="stat-lbl">Batch Picked</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-val" id="t-ready">-</div>
-                <div class="stat-lbl">Today Ready</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-val" id="t-picked">-</div>
-                <div class="stat-lbl">Today Picked</div>
-            </div>
+            <div class="stat-card"><div class="stat-val" id="b-ready">0</div><div class="stat-lbl">Batch Ready</div></div>
+            <div class="stat-card"><div class="stat-val" id="b-picked">0</div><div class="stat-lbl">Batch Picked</div></div>
+            <div class="stat-card"><div class="stat-val" id="t-ready">-</div><div class="stat-lbl">Today Ready</div></div>
+            <div class="stat-card"><div class="stat-val" id="t-picked">-</div><div class="stat-lbl">Today Picked</div></div>
         </div>
         <div class="tabs">
             <div class="tab active" data-mode="READY" onclick="setMode('READY')">MARK READY</div>
@@ -108,46 +68,27 @@
     </div>
 
     <div class="logs-panel">
-        <div class="logs-head">
-            <span>HISTORY</span>
-            <button class="btn-reset" onclick="resetBatch()">RESET BATCH</button>
-        </div>
+        <div class="logs-head"><span>HISTORY</span> <button onclick="resetBatch()">RESET</button></div>
         <div class="logs-list" id="logs"></div>
     </div>
 
     <div id="success-overlay" class="overlay success"><h1>✅</h1><p id="success-txt">SCANNED</p></div>
-    <div id="error-overlay" class="overlay error"><h1>⚠️</h1><p id="error-txt">ERROR</p><button class="btn-ok" onclick="closeError()">OK</button></div>
+    <div id="error-overlay" class="overlay error"><h1>⚠️</h1><p id="error-txt">ERROR</p><button class="btn-close" onclick="closeError()">OK</button></div>
 
     <script>
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1";
         const OPERATOR = "WarehouseOps";
-        
         let MODE = 'READY';
         let isProcessing = false;
         let batch = { READY: 0, PICKED_UP: 0 };
         let today = { READY: 0, PICKED_UP: 0 };
         let lastScanned = null;
 
-        // --- AUDIO ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function beep(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            if(type==='ok'){
-                osc.frequency.value=1200; gain.gain.value=0.1;
-                osc.start(); osc.stop(audioCtx.currentTime+0.1);
-            } else {
-                osc.type='sawtooth'; osc.frequency.value=150; gain.gain.value=0.5;
-                osc.start(); osc.stop(audioCtx.currentTime+0.3);
-                if(navigator.vibrate) navigator.vibrate(200);
-            }
-        }
+        // --- CAMERA INIT ---
+        function initCamera() {
+            // Hide start screen
+            document.getElementById('start-screen').style.display = 'none';
 
-        // --- QUAGGA INITIALIZATION ---
-        function startScanner() {
             Quagga.init({
                 inputStream: {
                     name: "Live",
@@ -156,68 +97,51 @@
                     constraints: {
                         width: { min: 640 },
                         height: { min: 480 },
-                        facingMode: "environment",
+                        facingMode: "environment", // Rear camera
                         aspectRatio: { min: 1, max: 2 }
                     }
                 },
-                locator: {
-                    patchSize: "medium",
-                    halfSample: true
-                },
+                locator: { patchSize: "medium", halfSample: true },
                 numOfWorkers: 2,
-                decoder: {
-                    readers: ["code_128_reader"] // ONLY AWB Barcodes. No QR.
-                },
-                locate: true // This turns on the "Green Box" drawing
+                decoder: { readers: ["code_128_reader"] }, // ONLY AWB BARCODES
+                locate: true
             }, function(err) {
-                if (err) { console.log(err); return; }
+                if (err) {
+                    alert("Camera Error: " + err + "\n\nMake sure you allowed camera permissions.");
+                    document.getElementById('start-screen').style.display = 'flex'; // Show button again
+                    return;
+                }
                 Quagga.start();
             });
 
-            // 1. VISUAL FEEDBACK (The Green Lines)
+            // Green Box Visuals
             Quagga.onProcessed(function(result) {
-                var drawingCtx = Quagga.canvas.ctx.overlay,
-                    drawingCanvas = Quagga.canvas.dom.overlay;
-
+                var drawingCtx = Quagga.canvas.ctx.overlay, drawingCanvas = Quagga.canvas.dom.overlay;
                 if (result) {
                     if (result.boxes) {
                         drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.getAttribute("width")), parseInt(drawingCanvas.getAttribute("height")));
-                        result.boxes.filter(function (box) {
-                            return box !== result.box;
-                        }).forEach(function (box) {
+                        result.boxes.filter(function (box) { return box !== result.box; }).forEach(function (box) {
                             Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "green", lineWidth: 2});
                         });
                     }
-
-                    if (result.box) {
-                        Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
-                    }
-
-                    if (result.codeResult && result.codeResult.code) {
-                        Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
-                    }
+                    if (result.box) Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
+                    if (result.codeResult && result.codeResult.code) Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
                 }
             });
 
-            // 2. DETECTION LOGIC
             Quagga.onDetected(function(result) {
                 var code = result.codeResult.code;
-                if(isProcessing) return;
-                if(code === lastScanned) return; // Debounce same code
-
-                // Optional: Check if it looks like an AWB (e.g. length > 5)
-                if(code.length < 5) return; 
-
+                if(isProcessing || code === lastScanned || code.length < 5) return;
                 processScan(code);
             });
         }
 
+        // --- API & LOGIC ---
         async function processScan(awb) {
             isProcessing = true;
-            lastScanned = awb; // Lock it
+            lastScanned = awb;
 
             const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
-            
             try {
                 const res = await fetch(`${BASE_URL}/${endpoint}`, {
                     method: 'POST',
@@ -227,37 +151,37 @@
                 const data = await res.json();
 
                 if (data.result === 'ACCEPTED') {
-                    beep('ok');
                     batch[MODE]++; today[MODE]++; updateUI();
-                    
-                    document.getElementById('success-txt').innerText = `${awb}\n${data.message}`;
-                    document.getElementById('success-overlay').style.display = 'flex';
-                    addLog(awb, data.message, 'ok');
-
-                    setTimeout(() => {
-                        document.getElementById('success-overlay').style.display = 'none';
-                        isProcessing = false;
-                        fetchCounts();
-                    }, 1000);
+                    showSuccess(awb, data.message);
+                    setTimeout(() => { fetchCounts(); isProcessing = false; }, 1000);
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                beep('err');
-                document.getElementById('error-txt').innerText = `${awb}\n\n${e.message || "Error"}`;
-                document.getElementById('error-overlay').style.display = 'flex';
-                addLog(awb, e.message || "Error", 'err');
+                showError(awb, e.message);
             }
+        }
+
+        function showSuccess(awb, msg) {
+            document.getElementById('success-txt').innerText = `${awb}\n${msg}`;
+            document.getElementById('success-overlay').style.display = 'flex';
+            addLog(awb, msg, 'ok');
+            setTimeout(() => { document.getElementById('success-overlay').style.display = 'none'; }, 1000);
+        }
+
+        function showError(awb, msg) {
+            document.getElementById('error-txt').innerText = `${awb}\n\n${msg}`;
+            document.getElementById('error-overlay').style.display = 'flex';
+            addLog(awb, msg, 'err');
         }
 
         function closeError() {
             document.getElementById('error-overlay').style.display = 'none';
             isProcessing = false;
-            // Clear last scanned so they can try again if they fix the issue
             setTimeout(() => { lastScanned = null; }, 1000);
         }
 
-        // --- UI HELPERS ---
+        // --- HELPERS ---
         function setMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -265,9 +189,7 @@
             lastScanned = null;
         }
 
-        function resetBatch() {
-            if(confirm("Reset batch?")) { batch = { READY: 0, PICKED_UP: 0 }; updateUI(); }
-        }
+        function resetBatch() { if(confirm("Reset batch?")) { batch = { READY: 0, PICKED_UP: 0 }; updateUI(); } }
 
         function updateUI() {
             document.getElementById('b-ready').innerText = batch.READY;
@@ -291,12 +213,7 @@
             } catch(e) {}
         }
 
-        // --- STARTUP ---
-        window.onload = function() {
-            fetchCounts();
-            startScanner();
-        };
-
+        window.onload = function() { fetchCounts(); };
     </script>
 </body>
 </html>
