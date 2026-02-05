@@ -3,85 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Scan</title>
+    <title>Barcodes Only</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        /* BASE RESET */
+        /* BASE & RESET */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* TOP HEADER (White) */
-        .header { background: white; padding: 10px; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        
-        /* 2x2 STATS GRID */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .stat-card { background: #f8fafc; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
-        .stat-card.batch { background: #eff6ff; border-color: #bfdbfe; }
-        .stat-val { font-size: 1.2rem; font-weight: 800; color: #0f172a; line-height: 1; }
-        .stat-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 600; margin-top: 4px; }
-        
-        /* MODE TABS */
-        .tabs { display: flex; background: #e2e8f0; border-radius: 8px; padding: 3px; }
-        .tab { flex: 1; padding: 10px; text-align: center; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; transition: 0.2s; color: #64748b; }
-        .tab.active { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: #000; }
-        .tab[data-mode="READY"].active { color: #2563eb; border-bottom: 3px solid #2563eb; }
-        .tab[data-mode="PICKED_UP"].active { color: #16a34a; border-bottom: 3px solid #16a34a; }
-
-        /* CAMERA AREA (Flexible Middle) */
-        #reader-container { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #reader { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* CUSTOM VIEWFINDER (Green Box) */
-        .viewfinder {
-            position: absolute; width: 70%; height: 30%;
-            border: 4px solid rgba(37, 235, 50, 0.6);
-            border-radius: 10px;
-            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5); /* Dim surroundings */
-            pointer-events: none; z-index: 10;
-        }
-        .viewfinder::after {
-            content: "SCAN HERE"; position: absolute; top: -25px; left: 0; right: 0;
-            text-align: center; color: white; font-weight: bold; font-size: 0.8rem; letter-spacing: 1px;
-            text-shadow: 0 1px 2px black;
-        }
-
-        /* LOGS AREA (Bottom Slider - Increased Size) */
-        .logs-container { 
-            height: 35vh; /* 35% of screen height */
-            background: white; 
-            border-top-left-radius: 15px; border-top-right-radius: 15px; 
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; padding: 0; 
+            background: #000; 
+            height: 100vh; 
             display: flex; flex-direction: column; 
+        }
+
+        /* 1. TOP HEADER */
+        .header { 
+            background: #fff; 
+            padding: 10px; 
             z-index: 20; 
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+            border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; 
+        }
+
+        /* 2x2 STATS */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+        .stat-card { background: #f8fafc; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; }
+        .stat-card.batch { background: #eff6ff; border-color: #93c5fd; }
+        .stat-val { font-size: 1.1rem; font-weight: 800; color: #0f172a; line-height: 1; }
+        .stat-label { font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+
+        /* TABS */
+        .tabs { display: flex; background: #e2e8f0; border-radius: 8px; padding: 3px; }
+        .tab { flex: 1; padding: 8px; text-align: center; font-weight: 700; font-size: 0.8rem; border-radius: 6px; cursor: pointer; color: #64748b; }
+        .tab.active { background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.15); color: #000; }
+        .tab[data-mode="READY"].active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        .tab[data-mode="PICKED_UP"].active { color: #16a34a; border-bottom: 2px solid #16a34a; }
+
+        /* 2. CAMERA AREA (Fills space) */
+        #reader-wrapper { 
+            flex: 1; 
+            position: relative; 
+            background: #000; 
+            overflow: hidden; 
+        }
+        #reader { 
+            width: 100%; 
+            height: 100%; 
+        }
+        /* Make the camera video fill the container */
+        #reader video { object-fit: cover; width: 100%; height: 100%; }
+
+        /* 3. LOGS (Fixed Bottom Sheet) */
+        .logs-container { 
+            height: 40vh; /* Increased Size as requested */
+            background: white; 
+            display: flex; flex-direction: column; 
+            z-index: 30;
+            border-top-left-radius: 16px; border-top-right-radius: 16px; 
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
         }
         .logs-header { 
-            padding: 10px 15px; border-bottom: 1px solid #e2e8f0; 
-            font-size: 0.8rem; font-weight: bold; color: #475569; display: flex; justify-content: space-between; 
+            padding: 12px 15px; border-bottom: 1px solid #e2e8f0; 
+            display: flex; justify-content: space-between; align-items: center; 
         }
-        .logs-list { 
-            flex: 1; overflow-y: auto; padding: 0; margin: 0; 
+        .logs-title { font-weight: 800; font-size: 0.85rem; color: #334155; letter-spacing: 0.5px; }
+        .btn-reset { 
+            background: #f1f5f9; border: 1px solid #cbd5e1; 
+            color: #475569; padding: 4px 10px; border-radius: 4px; 
+            font-size: 0.7rem; font-weight: bold; 
         }
+        .logs-list { flex: 1; overflow-y: auto; padding: 0; }
         .log-row { 
-            padding: 12px 15px; border-bottom: 1px solid #f1f5f9; 
+            padding: 10px 15px; border-bottom: 1px solid #f1f5f9; 
             display: flex; justify-content: space-between; align-items: center; 
         }
         .log-row.ok { border-left: 5px solid #16a34a; background: #f0fdf4; }
         .log-row.err { border-left: 5px solid #dc2626; background: #fef2f2; }
-        .log-awb { font-weight: bold; font-size: 1rem; color: #1e293b; }
-        .log-msg { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
-        .log-time { font-size: 0.7rem; color: #94a3b8; }
-
-        /* BATCH RESET BUTTON */
-        .btn-reset { border: 1px solid #cbd5e1; background: white; border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; color: #64748b; }
-
+        
         /* OVERLAYS */
-        .overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        .overlay.success { background: rgba(22, 163, 74, 0.95); }
+        .overlay { position: fixed; inset: 0; z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .overlay.success { background: rgba(22, 163, 74, 0.9); pointer-events: none; }
         .overlay.error { background: rgba(220, 38, 38, 0.98); color: white; }
-        .overlay h1 { font-size: 4rem; margin: 0; }
-        .overlay p { color: white; font-size: 1.5rem; font-weight: bold; margin: 10px 20px; }
-        button.btn-close { margin-top: 20px; padding: 15px 40px; border-radius: 30px; border: none; font-weight: bold; font-size: 1.1rem; background: white; color: black; }
-
+        
+        .overlay h1 { font-size: 5rem; margin: 0; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .overlay p { font-size: 1.5rem; font-weight: bold; margin: 10px 20px; color: white; }
+        
+        button.btn-close { 
+            margin-top: 30px; padding: 15px 50px; 
+            border-radius: 50px; border: none; 
+            font-weight: 900; font-size: 1.2rem; 
+            background: white; color: black; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
@@ -112,27 +123,26 @@
         </div>
     </div>
 
-    <div id="reader-container">
+    <div id="reader-wrapper">
         <div id="reader"></div>
-        <div class="viewfinder"></div> </div>
+    </div>
 
     <div class="logs-container">
         <div class="logs-header">
-            <span>PREVIOUS SCANS</span>
+            <span class="logs-title">SCAN HISTORY</span>
             <button class="btn-reset" onclick="resetBatch()">RESET BATCH</button>
         </div>
-        <div class="logs-list" id="logs">
-            </div>
+        <div class="logs-list" id="logs"></div>
     </div>
 
     <div id="success-overlay" class="overlay success">
         <h1>✅</h1>
-        <p id="success-txt">Scanned</p>
+        <p id="success-txt">SCANNED</p>
     </div>
 
     <div id="error-overlay" class="overlay error">
         <h1>⚠️</h1>
-        <p id="error-txt">Error</p>
+        <p id="error-txt">ERROR</p>
         <button class="btn-close" onclick="closeError()">OK</button>
     </div>
 
@@ -140,7 +150,7 @@
         // === CONFIG ===
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1"; 
         const OPERATOR = "WarehouseOps";
-        
+
         // === STATE ===
         let MODE = 'READY';
         let isProcessing = false;
@@ -156,18 +166,17 @@
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
-            if (type === 'ok') {
-                osc.frequency.value = 1000; gain.gain.value = 0.1;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            if(type==='ok'){
+                osc.frequency.value=1200; gain.gain.value=0.1;
+                osc.start(); osc.stop(audioCtx.currentTime+0.1);
             } else {
-                osc.type = 'sawtooth'; osc.frequency.value = 150; gain.gain.value = 0.5;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-                if(navigator.vibrate) navigator.vibrate(200);
+                osc.type='sawtooth'; osc.frequency.value=150; gain.gain.value=0.5;
+                osc.start(); osc.stop(audioCtx.currentTime+0.3);
+                if(navigator.vibrate) navigator.vibrate(300);
             }
         }
 
-        // === UI LOGIC ===
+        // === LOGIC ===
         function setMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -176,7 +185,7 @@
         }
 
         function resetBatch() {
-            if(confirm("Reset batch counts?")) {
+            if(confirm("Clear batch counts?")) {
                 batch = { READY: 0, PICKED_UP: 0 };
                 updateUI();
             }
@@ -194,15 +203,14 @@
             row.className = `log-row ${type}`;
             row.innerHTML = `
                 <div>
-                    <div class="log-awb">${awb}</div>
-                    <div class="log-msg">${msg}</div>
+                    <div style="font-weight:bold; font-size:1rem; color:#1e293b">${awb.slice(-8)}</div>
+                    <div style="font-size:0.75rem; color:#64748b">${msg}</div>
                 </div>
-                <div class="log-time">${new Date().toLocaleTimeString()}</div>
+                <div style="font-size:0.7rem; color:#94a3b8">${new Date().toLocaleTimeString()}</div>
             `;
             document.getElementById('logs').prepend(row);
         }
 
-        // === API LOGIC ===
         async function fetchCounts() {
             try {
                 const res = await fetch(`${BASE_URL}/warehouse_get_counts`);
@@ -212,7 +220,7 @@
                     today.PICKED_UP = data.picked_today || 0;
                     updateUI();
                 }
-            } catch(e) { console.error("Fetch counts failed", e); }
+            } catch(e) {}
         }
 
         async function onScan(decodedText) {
@@ -233,25 +241,19 @@
                 const data = await res.json();
 
                 if (data.result === 'ACCEPTED') {
-                    // Success
                     beep('ok');
-                    batch[MODE]++;
-                    today[MODE]++; // Optimistic update
-                    updateUI();
+                    batch[MODE]++; today[MODE]++; updateUI();
                     
                     document.getElementById('success-txt').innerText = `${decodedText}\n${data.message}`;
                     document.getElementById('success-overlay').style.display = 'flex';
                     addLog(decodedText, data.message, 'ok');
                     
-                    // Re-fetch accurate counts from server in background
-                    fetchCounts();
-
                     setTimeout(() => {
                         document.getElementById('success-overlay').style.display = 'none';
                         isProcessing = false;
+                        fetchCounts(); // background sync
                     }, 800);
                 } else {
-                    // Error
                     throw new Error(data.message);
                 }
             } catch (e) {
@@ -265,7 +267,7 @@
         function closeError() {
             document.getElementById('error-overlay').style.display = 'none';
             isProcessing = false;
-            lastCode = null; // Allow retry
+            lastCode = null;
         }
 
         // === INIT ===
@@ -273,14 +275,28 @@
             fetchCounts();
             
             const html5QrCode = new Html5Qrcode("reader");
+
+            // --- CRITICAL CONFIGURATION ---
+            // 1. Only scan CODE_128 (AWB) and CODE_39. IGNORES QR!
+            const formats = [ 
+                Html5QrcodeSupportedFormats.CODE_128, 
+                Html5QrcodeSupportedFormats.CODE_39 
+            ];
+
             const config = { 
                 fps: 15, 
-                qrbox: { width: 300, height: 150 }, // Wide box for AWBs
-                aspectRatio: 1.0 
+                qrbox: { width: 300, height: 100 }, // WIDE box for barcodes
+                aspectRatio: 1.0,
+                formatsToSupport: formats // This enforces "Barcodes Only"
             };
             
-            html5QrCode.start({ facingMode: "environment" }, config, onScan)
-            .catch(err => alert("Camera Error: " + err));
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScan
+            ).catch(err => {
+                alert("Camera Error: " + err);
+            });
         };
     </script>
 </body>
