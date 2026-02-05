@@ -6,153 +6,66 @@
     <title>Warehouse Scan</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #f4f4f5; display: flex; flex-direction: column; height: 100vh; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f5; text-align: center; }
         
-        /* 1. HEADER (Stats) */
-        .header { background: white; padding: 10px; border-bottom: 1px solid #ddd; z-index: 20; }
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
-        .stat-box { background: #f0f9ff; border: 1px solid #bae6fd; padding: 5px; text-align: center; border-radius: 4px; }
-        .stat-val { font-weight: bold; font-size: 1.1rem; color: #0284c7; }
-        .stat-lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
-        
-        /* 2. MODE TABS */
-        .tabs { display: flex; gap: 5px; background: #e2e8f0; pading: 3px; border-radius: 6px; }
-        .tab { flex: 1; padding: 10px; text-align: center; background: #e2e8f0; font-weight: bold; cursor: pointer; border-radius: 4px; color: #64748b; }
+        /* SCANNER CONTAINER */
+        #reader { width: 100%; background: black; border-radius: 8px; overflow: hidden; }
+
+        /* HEADER */
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .box { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .val { font-size: 1.5rem; font-weight: bold; color: #2563eb; }
+        .label { font-size: 0.8rem; color: #64748b; }
+
+        /* DEBUG LOG (RED BOX) */
+        #debug-log { 
+            margin-top: 20px; 
+            background: #333; 
+            color: #0f0; 
+            font-family: monospace; 
+            padding: 10px; 
+            text-align: left; 
+            height: 150px; 
+            overflow-y: scroll;
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        /* TABS */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 15px; background: #e2e8f0; border-radius: 8px; font-weight: bold; color: #64748b; cursor: pointer; }
         .tab.active { background: #2563eb; color: white; }
         .tab[data-mode="PICKED_UP"].active { background: #16a34a; }
-
-        /* 3. SCANNER AREA (We let the library handle the size) */
-        #scanner-container { flex: 1; background: black; overflow: hidden; position: relative; }
-        /* Force the library video to fill space */
-        #reader { width: 100%; border: none; }
-        #reader video { object-fit: cover; border-radius: 0; }
-        
-        /* 4. LOGS (Scrollable) */
-        .logs { height: 30vh; background: white; overflow-y: auto; padding: 10px; border-top: 1px solid #ccc; font-size: 0.85rem; }
-        .log-item { padding: 5px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        .log-item.ok { color: green; } .log-item.err { color: red; }
-
-        /* 5. DEBUG CONSOLE (To see why camera fails) */
-        #debug { display: none; background: #333; color: #0f0; font-family: monospace; padding: 10px; font-size: 0.7rem; max-height: 100px; overflow: auto; }
-
-        /* POPUPS */
-        .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 100; text-align: center; color: white; }
-        .overlay.ok { background: rgba(22, 163, 74, 0.9); }
-        .overlay.err { background: rgba(220, 38, 38, 0.95); }
-        .overlay h1 { font-size: 4rem; margin: 0; }
-        .overlay p { font-size: 1.2rem; font-weight: bold; }
-        button.close-btn { padding: 15px 30px; border-radius: 30px; border: none; font-size: 1rem; font-weight: bold; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="stats">
-            <div class="stat-box"><div class="stat-val" id="count-ready">-</div><div class="stat-lbl">Today Ready</div></div>
-            <div class="stat-box"><div class="stat-val" id="count-picked">-</div><div class="stat-lbl">Today Picked</div></div>
-        </div>
-        <div class="tabs">
-            <div class="tab active" data-mode="READY" onclick="setMode('READY')">MARK READY</div>
-            <div class="tab" data-mode="PICKED_UP" onclick="setMode('PICKED_UP')">MARK PICKED UP</div>
-        </div>
+    <div class="stats">
+        <div class="box"><div class="val" id="ready-count">0</div><div class="label">Ready</div></div>
+        <div class="box"><div class="val" id="picked-count">0</div><div class="label">Picked</div></div>
     </div>
 
-    <div id="scanner-container">
-        <div id="reader"></div>
+    <div class="tabs">
+        <div class="tab active" data-mode="READY" onclick="setMode('READY')">MARK READY</div>
+        <div class="tab" data-mode="PICKED_UP" onclick="setMode('PICKED_UP')">MARK PICKED</div>
     </div>
 
-    <div id="debug">DEBUG LOG:</div>
-    <div class="logs" id="logs">
-        <div style="color:#aaa; text-align:center; padding:10px;">Scan History</div>
-    </div>
+    <div id="reader"></div>
 
-    <div id="overlay-ok" class="overlay ok"><h1>✅</h1><p id="msg-ok">Scanned</p></div>
-    <div id="overlay-err" class="overlay err"><h1>⚠️</h1><p id="msg-err">Error</p><button class="close-btn" onclick="hideErr()">OK</button></div>
+    <div id="debug-log">System Initialized...</div>
 
     <script>
-        // === CONFIG ===
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1";
         const OPERATOR = "WarehouseOps";
         let MODE = 'READY';
-        let isProcessing = false;
         let lastCode = null;
 
-        // === DEBUGGER ===
-        function debug(msg) {
-            console.log(msg);
-            const d = document.getElementById('debug');
-            d.style.display = 'block';
+        function log(msg) {
+            const d = document.getElementById('debug-log');
             d.innerHTML += `<div>> ${msg}</div>`;
             d.scrollTop = d.scrollHeight;
         }
 
-        // === 1. START SCANNER (The Safe Way) ===
-        function startScanner() {
-            debug("Initializing Scanner...");
-
-            // Create the UI Scanner
-            const html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", 
-                { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 150 }, // Rectangular Box
-                    aspectRatio: 1.0,
-                    showTorchButtonIfSupported: true
-                },
-                /* verbose= */ false 
-            );
-
-            // Success Callback
-            function onScanSuccess(decodedText, decodedResult) {
-                if (isProcessing) return;
-                if (decodedText === lastCode) return; // Ignore duplicates
-                
-                // IGNORE QR CODES (Simple heuristic: AWBs are usually numeric or alphanumeric > 8 chars)
-                // You can remove this check if you want to allow everything
-                // if (decodedText.length < 5) return; 
-
-                handleScan(decodedText);
-            }
-
-            // Error Callback (Silent mostly, to avoid spam)
-            function onScanFailure(error) {
-                // debug(`Scan fail: ${error}`); // Uncomment if you want to see every failed frame
-            }
-
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-            debug("Scanner Rendered. Waiting for permissions...");
-        }
-
-        // === 2. HANDLE SCANS ===
-        async function handleScan(awb) {
-            isProcessing = true;
-            lastCode = awb;
-            debug(`Scanned: ${awb}`);
-
-            const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
-            
-            try {
-                // UI Feedback: Loading
-                
-                const res = await fetch(`${BASE_URL}/${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ awb: awb, operator: OPERATOR })
-                });
-                const data = await res.json();
-
-                if (data.result === 'ACCEPTED') {
-                    showOk(awb, data.message);
-                    updateCount(MODE, 1);
-                } else {
-                    throw new Error(data.message);
-                }
-            } catch (e) {
-                showErr(awb, e.message || "Network Error");
-            }
-        }
-
-        // === 3. UI HELPERS ===
         function setMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -160,90 +73,56 @@
             lastCode = null;
         }
 
-        function showOk(awb, msg) {
-            const ol = document.getElementById('overlay-ok');
-            document.getElementById('msg-ok').innerText = `${awb}\n${msg}`;
-            ol.style.display = 'flex';
-            addLog(awb, msg, true);
+        // === 1. INITIALIZE SCANNER ===
+        function onScanSuccess(decodedText, decodedResult) {
+            if (decodedText === lastCode) return;
+            lastCode = decodedText;
             
-            // Audio Beep
-            playBeep(true);
-
-            setTimeout(() => {
-                ol.style.display = 'none';
-                isProcessing = false;
-                // Don't clear lastCode immediately to prevent rapid double-scan of same item
-                setTimeout(() => lastCode = null, 2000); 
-            }, 1000);
+            log(`SCANNED: ${decodedText}`);
+            processScan(decodedText);
         }
 
-        function showErr(awb, msg) {
-            const ol = document.getElementById('overlay-err');
-            document.getElementById('msg-err').innerText = `${awb}\n${msg}`;
-            ol.style.display = 'flex';
-            addLog(awb, msg, false);
-            playBeep(false);
+        function onScanFailure(error) {
+            // This fires continuously when it doesn't see a code. 
+            // We ignore it to keep logs clean.
         }
 
-        function hideErr() {
-            document.getElementById('overlay-err').style.display = 'none';
-            isProcessing = false;
-            lastCode = null;
+        // Load the Scanner UI
+        try {
+            const html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { fps: 10, qrbox: { width: 250, height: 150 } }, 
+                /* verbose= */ false
+            );
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            log("Scanner UI Rendered. Click 'Request Camera Permissions' above.");
+        } catch (err) {
+            log("CRITICAL ERROR: " + err);
         }
 
-        function addLog(awb, msg, isOk) {
-            const row = document.createElement('div');
-            row.className = 'log-item ' + (isOk ? 'ok' : 'err');
-            row.innerHTML = `<span>${awb}</span><span>${msg}</span>`;
-            document.getElementById('logs').prepend(row);
-        }
-
-        function updateCount(mode, amount) {
-            // This is "optimistic" updating. Real count comes from server on reload.
-            const id = mode === 'READY' ? 'count-ready' : 'count-picked';
-            const el = document.getElementById(id);
-            let val = parseInt(el.innerText);
-            if(isNaN(val)) val = 0;
-            el.innerText = val + amount;
-        }
-
-        // Audio Feedback
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playBeep(success) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            if(success) {
-                osc.frequency.value = 1000; gain.gain.value = 0.1;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            } else {
-                osc.type = 'sawtooth'; osc.frequency.value = 200; gain.gain.value = 0.2;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-                if(navigator.vibrate) navigator.vibrate(300);
-            }
-        }
-
-        async function fetchCounts() {
+        // === 2. API LOGIC ===
+        async function processScan(awb) {
+            const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
             try {
-                const res = await fetch(`${BASE_URL}/warehouse_get_counts`);
+                const res = await fetch(`${BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ awb: awb, operator: OPERATOR })
+                });
                 const data = await res.json();
-                document.getElementById('count-ready').innerText = data.ready_today || 0;
-                document.getElementById('count-picked').innerText = data.picked_today || 0;
-            } catch(e) { debug("Count fetch error"); }
-        }
-
-        // === STARTUP ===
-        window.onload = function() {
-            fetchCounts();
-            try {
-                startScanner();
-            } catch(e) {
-                debug("FATAL: " + e.message);
-                alert("Scanner failed to load: " + e.message);
+                
+                if (data.result === 'ACCEPTED') {
+                    log(`✅ SUCCESS: ${data.message}`);
+                    document.getElementById(MODE === 'READY' ? 'ready-count' : 'picked-count').innerText++;
+                    alert(`✅ OK: ${awb}`);
+                } else {
+                    log(`❌ REJECTED: ${data.message}`);
+                    alert(`⚠️ ERROR: ${data.message}`);
+                }
+            } catch (e) {
+                log(`❌ NETWORK ERROR: ${e.message}`);
             }
-        };
+        }
     </script>
 </body>
 </html>
