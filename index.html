@@ -3,59 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fast Scan</title>
+    <title>Pro Scan</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #f4f4f5; height: 100vh; display: flex; flex-direction: column; }
+        /* BASE RESET */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* HEADER AREA */
-        .header { background: white; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
+        /* TOP HEADER (White) */
+        .header { background: white; padding: 10px; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         
-        /* 2x2 GRID FOR COUNTERS */
+        /* 2x2 STATS GRID */
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .stat-card { background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; }
+        .stat-card { background: #f8fafc; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
         .stat-card.batch { background: #eff6ff; border-color: #bfdbfe; }
-        .stat-val { font-size: 1.1rem; font-weight: 800; color: #0f172a; }
-        .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-val { font-size: 1.2rem; font-weight: 800; color: #0f172a; line-height: 1; }
+        .stat-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 600; margin-top: 4px; }
         
-        /* TABS */
+        /* MODE TABS */
         .tabs { display: flex; background: #e2e8f0; border-radius: 8px; padding: 3px; }
-        .tab { flex: 1; padding: 10px; text-align: center; font-weight: 700; font-size: 0.9rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-        .tab.active { background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .tab[data-mode="READY"].active { color: #2563eb; } /* Blue */
-        .tab[data-mode="PICKED_UP"].active { color: #16a34a; } /* Green */
+        .tab { flex: 1; padding: 10px; text-align: center; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; transition: 0.2s; color: #64748b; }
+        .tab.active { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: #000; }
+        .tab[data-mode="READY"].active { color: #2563eb; border-bottom: 3px solid #2563eb; }
+        .tab[data-mode="PICKED_UP"].active { color: #16a34a; border-bottom: 3px solid #16a34a; }
 
-        /* SCANNER & LOGS */
-        #reader { flex: 1; width: 100%; background: #000; position: relative; overflow: hidden; }
+        /* CAMERA AREA (Flexible Middle) */
+        #reader-container { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #reader { width: 100%; height: 100%; object-fit: cover; }
         
-        .logs { height: 120px; background: white; overflow-y: auto; padding: 0; border-top: 1px solid #e2e8f0; }
-        .log-row { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
-        .log-row.ok { border-left: 4px solid #16a34a; background: #f0fdf4; }
-        .log-row.err { border-left: 4px solid #dc2626; background: #fef2f2; }
-        .time { color: #94a3b8; font-size: 0.7rem; }
+        /* CUSTOM VIEWFINDER (Green Box) */
+        .viewfinder {
+            position: absolute; width: 70%; height: 30%;
+            border: 4px solid rgba(37, 235, 50, 0.6);
+            border-radius: 10px;
+            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5); /* Dim surroundings */
+            pointer-events: none; z-index: 10;
+        }
+        .viewfinder::after {
+            content: "SCAN HERE"; position: absolute; top: -25px; left: 0; right: 0;
+            text-align: center; color: white; font-weight: bold; font-size: 0.8rem; letter-spacing: 1px;
+            text-shadow: 0 1px 2px black;
+        }
 
-        /* BATCH CONTROL */
-        .batch-ctrl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 5px; }
-        .batch-title { font-size: 0.8rem; font-weight: bold; color: #475569; }
-        .btn-reset { background: none; border: 1px solid #cbd5e1; color: #64748b; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        /* LOGS AREA (Bottom Slider - Increased Size) */
+        .logs-container { 
+            height: 35vh; /* 35% of screen height */
+            background: white; 
+            border-top-left-radius: 15px; border-top-right-radius: 15px; 
+            display: flex; flex-direction: column; 
+            z-index: 20; 
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.2);
+        }
+        .logs-header { 
+            padding: 10px 15px; border-bottom: 1px solid #e2e8f0; 
+            font-size: 0.8rem; font-weight: bold; color: #475569; display: flex; justify-content: space-between; 
+        }
+        .logs-list { 
+            flex: 1; overflow-y: auto; padding: 0; margin: 0; 
+        }
+        .log-row { 
+            padding: 12px 15px; border-bottom: 1px solid #f1f5f9; 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+        .log-row.ok { border-left: 5px solid #16a34a; background: #f0fdf4; }
+        .log-row.err { border-left: 5px solid #dc2626; background: #fef2f2; }
+        .log-awb { font-weight: bold; font-size: 1rem; color: #1e293b; }
+        .log-msg { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+        .log-time { font-size: 0.7rem; color: #94a3b8; }
+
+        /* BATCH RESET BUTTON */
+        .btn-reset { border: 1px solid #cbd5e1; background: white; border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; color: #64748b; }
 
         /* OVERLAYS */
-        .overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: white; z-index: 100; }
-        .overlay.error { background: rgba(220, 38, 38, 0.98); }
-        .overlay.success { background: rgba(22, 163, 74, 0.9); pointer-events: none; }
-        .overlay h1 { font-size: 3rem; margin: 0; }
-        .overlay p { font-size: 1.2rem; margin: 10px 20px; line-height: 1.4; }
-        button.btn-ok { background: white; color: black; border: none; padding: 15px 50px; font-size: 1.1rem; border-radius: 50px; font-weight: bold; margin-top: 20px; }
+        .overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        .overlay.success { background: rgba(22, 163, 74, 0.95); }
+        .overlay.error { background: rgba(220, 38, 38, 0.98); color: white; }
+        .overlay h1 { font-size: 4rem; margin: 0; }
+        .overlay p { color: white; font-size: 1.5rem; font-weight: bold; margin: 10px 20px; }
+        button.btn-close { margin-top: 20px; padding: 15px 40px; border-radius: 30px; border: none; font-weight: bold; font-size: 1.1rem; background: white; color: black; }
+
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="batch-ctrl">
-            <span class="batch-title">CURRENT SESSION</span>
-            <button class="btn-reset" onclick="resetBatch()">RESET BATCH</button>
-        </div>
-
         <div class="stats-grid">
             <div class="stat-card batch">
                 <div class="stat-val" id="b-ready">0</div>
@@ -76,38 +107,48 @@
         </div>
 
         <div class="tabs">
-            <div class="tab active" data-mode="READY" onclick="switchMode('READY')">MARK READY</div>
-            <div class="tab" data-mode="PICKED_UP" onclick="switchMode('PICKED_UP')">MARK PICKED UP</div>
+            <div class="tab active" data-mode="READY" onclick="setMode('READY')">MARK READY</div>
+            <div class="tab" data-mode="PICKED_UP" onclick="setMode('PICKED_UP')">MARK PICKED UP</div>
         </div>
     </div>
 
-    <div id="reader"></div>
-    <div class="logs" id="logs"></div>
+    <div id="reader-container">
+        <div id="reader"></div>
+        <div class="viewfinder"></div> </div>
+
+    <div class="logs-container">
+        <div class="logs-header">
+            <span>PREVIOUS SCANS</span>
+            <button class="btn-reset" onclick="resetBatch()">RESET BATCH</button>
+        </div>
+        <div class="logs-list" id="logs">
+            </div>
+    </div>
 
     <div id="success-overlay" class="overlay success">
         <h1>✅</h1>
-        <p id="success-msg">Scanned</p>
+        <p id="success-txt">Scanned</p>
     </div>
 
     <div id="error-overlay" class="overlay error">
         <h1>⚠️</h1>
-        <p id="error-msg">Error</p>
-        <button class="btn-ok" onclick="dismissError()">OK, CONTINUE</button>
+        <p id="error-txt">Error</p>
+        <button class="btn-close" onclick="closeError()">OK</button>
     </div>
 
     <script>
-        // ✅ YOUR URL
+        // === CONFIG ===
         const BASE_URL = "https://pzgnggkanppnwnkjgwrm.supabase.co/functions/v1"; 
-        const OPERATOR_NAME = "WarehouseOps";
-
+        const OPERATOR = "WarehouseOps";
+        
+        // === STATE ===
         let MODE = 'READY';
         let isProcessing = false;
-        let lastScannedCode = null;
-        
-        // Batch Counters (Session only)
-        let batchCounts = { READY: 0, PICKED_UP: 0 };
+        let lastCode = null;
+        let batch = { READY: 0, PICKED_UP: 0 };
+        let today = { READY: 0, PICKED_UP: 0 };
 
-        // --- AUDIO ---
+        // === AUDIO ===
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function beep(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -115,146 +156,131 @@
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
+            
             if (type === 'ok') {
-                osc.frequency.value = 1200; gain.gain.value = 0.1;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                osc.frequency.value = 1000; gain.gain.value = 0.1;
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
             } else {
                 osc.type = 'sawtooth'; osc.frequency.value = 150; gain.gain.value = 0.5;
-                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
-                if(navigator.vibrate) navigator.vibrate([200, 50, 200]);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                if(navigator.vibrate) navigator.vibrate(200);
             }
         }
 
-        // --- LOGIC ---
-        function switchMode(m) {
+        // === UI LOGIC ===
+        function setMode(m) {
             MODE = m;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`.tab[data-mode="${m}"]`).classList.add('active');
-            lastScannedCode = null;
+            lastCode = null;
         }
 
         function resetBatch() {
-            if(confirm("Start new batch? This clears local counts.")) {
-                batchCounts = { READY: 0, PICKED_UP: 0 };
+            if(confirm("Reset batch counts?")) {
+                batch = { READY: 0, PICKED_UP: 0 };
                 updateUI();
             }
         }
 
-        async function onScan(decodedText) {
-            if (isProcessing) return;
-            if (decodedText === lastScannedCode) return; // Ignore duplicate frames
-            
-            isProcessing = true;
-            lastScannedCode = decodedText;
-
-            const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
-            
-            try {
-                // UI feedback immediately
-                document.getElementById('success-msg').innerText = "Processing...";
-                
-                const res = await fetch(`${BASE_URL}/${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ awb: decodedText, operator: OPERATOR_NAME })
-                });
-                const data = await res.json();
-
-                if (data.result === 'ACCEPTED') {
-                    handleSuccess(decodedText, data.message);
-                } else {
-                    handleError(decodedText, data.message);
-                }
-            } catch (e) {
-                handleError(decodedText, "Network Error");
-            }
-        }
-
-        function handleSuccess(awb, msg) {
-            beep('ok');
-            document.getElementById('success-msg').innerText = `${awb}\n${msg}`;
-            document.getElementById('success-overlay').style.display = 'flex';
-            
-            log(awb, msg, 'ok');
-            
-            // Increment Batch
-            batchCounts[MODE]++;
-            
-            // Increment Total (Optimistic)
-            const todayId = MODE === 'READY' ? 't-ready' : 't-picked';
-            const el = document.getElementById(todayId);
-            el.innerText = (parseInt(el.innerText) || 0) + 1;
-            
-            updateUI();
-
-            setTimeout(() => {
-                document.getElementById('success-overlay').style.display = 'none';
-                isProcessing = false;
-            }, 800); // Fast resume
-        }
-
-        function handleError(awb, msg) {
-            beep('error');
-            document.getElementById('error-msg').innerText = `${awb}\n\n${msg}`;
-            document.getElementById('error-overlay').style.display = 'flex';
-            log(awb, msg, 'err');
-            // Stays locked until user clicks OK
-        }
-
-        function dismissError() {
-            document.getElementById('error-overlay').style.display = 'none';
-            isProcessing = false;
-            lastScannedCode = null; // Allow retry
-        }
-
-        function log(awb, msg, type) {
-            const div = document.createElement('div');
-            div.className = `log-row ${type}`;
-            div.innerHTML = `<span><strong>${awb.slice(-6)}</strong>: ${msg}</span> <span class="time">${new Date().toLocaleTimeString()}</span>`;
-            document.getElementById('logs').prepend(div);
-        }
-
         function updateUI() {
-            document.getElementById('b-ready').innerText = batchCounts.READY;
-            document.getElementById('b-picked').innerText = batchCounts.PICKED_UP;
+            document.getElementById('b-ready').innerText = batch.READY;
+            document.getElementById('b-picked').innerText = batch.PICKED_UP;
+            document.getElementById('t-ready').innerText = today.READY;
+            document.getElementById('t-picked').innerText = today.PICKED_UP;
         }
 
-        async function fetchTodayCounts() {
+        function addLog(awb, msg, type) {
+            const row = document.createElement('div');
+            row.className = `log-row ${type}`;
+            row.innerHTML = `
+                <div>
+                    <div class="log-awb">${awb}</div>
+                    <div class="log-msg">${msg}</div>
+                </div>
+                <div class="log-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            document.getElementById('logs').prepend(row);
+        }
+
+        // === API LOGIC ===
+        async function fetchCounts() {
             try {
                 const res = await fetch(`${BASE_URL}/warehouse_get_counts`);
                 const data = await res.json();
                 if(data) {
-                    document.getElementById('t-ready').innerText = data.ready_today || 0;
-                    document.getElementById('t-picked').innerText = data.picked_today || 0;
+                    today.READY = data.ready_today || 0;
+                    today.PICKED_UP = data.picked_today || 0;
+                    updateUI();
                 }
-            } catch(e) { console.error("Count fetch failed", e); }
+            } catch(e) { console.error("Fetch counts failed", e); }
         }
 
-        // --- INIT SCANNER ---
+        async function onScan(decodedText) {
+            if (isProcessing) return;
+            if (decodedText === lastCode) return;
+            
+            isProcessing = true;
+            lastCode = decodedText;
+
+            const endpoint = MODE === 'READY' ? 'warehouse_scan_ready' : 'warehouse_scan_picked_up';
+            
+            try {
+                const res = await fetch(`${BASE_URL}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ awb: decodedText, operator: OPERATOR })
+                });
+                const data = await res.json();
+
+                if (data.result === 'ACCEPTED') {
+                    // Success
+                    beep('ok');
+                    batch[MODE]++;
+                    today[MODE]++; // Optimistic update
+                    updateUI();
+                    
+                    document.getElementById('success-txt').innerText = `${decodedText}\n${data.message}`;
+                    document.getElementById('success-overlay').style.display = 'flex';
+                    addLog(decodedText, data.message, 'ok');
+                    
+                    // Re-fetch accurate counts from server in background
+                    fetchCounts();
+
+                    setTimeout(() => {
+                        document.getElementById('success-overlay').style.display = 'none';
+                        isProcessing = false;
+                    }, 800);
+                } else {
+                    // Error
+                    throw new Error(data.message);
+                }
+            } catch (e) {
+                beep('err');
+                document.getElementById('error-txt').innerText = `${decodedText}\n\n${e.message || "Error"}`;
+                document.getElementById('error-overlay').style.display = 'flex';
+                addLog(decodedText, e.message || "Error", 'err');
+            }
+        }
+
+        function closeError() {
+            document.getElementById('error-overlay').style.display = 'none';
+            isProcessing = false;
+            lastCode = null; // Allow retry
+        }
+
+        // === INIT ===
         window.onload = function() {
-            fetchTodayCounts();
+            fetchCounts();
             
             const html5QrCode = new Html5Qrcode("reader");
-            
-            // WIDE BOX config for Barcodes (AWBs are rectangles!)
             const config = { 
                 fps: 15, 
-                qrbox: { width: 300, height: 150 }, 
-                aspectRatio: 1.0,
-                // Force experimental features for native speed
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true
-                }
+                qrbox: { width: 300, height: 150 }, // Wide box for AWBs
+                aspectRatio: 1.0 
             };
-
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScan
-            ).catch(err => {
-                console.log("Scanner init error", err);
-                alert("Camera error: " + err);
-            });
+            
+            html5QrCode.start({ facingMode: "environment" }, config, onScan)
+            .catch(err => alert("Camera Error: " + err));
         };
     </script>
 </body>
